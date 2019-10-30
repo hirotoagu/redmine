@@ -1,0 +1,105 @@
+# デフォルト記述
+AWSTemplateFormatVersion: '2010-09-09'
+# Key pair の指定。
+# AWSコンソールでパラメータを指定
+Parameters:
+  KeyPair:
+    Description: KeyPair Name
+    Type: AWS::EC2::KeyPair::KeyName
+# EC2のイメージID
+Mappings:
+  StackConfig:
+    EC2:
+      ImageId: 'ami-923d12f5'
+Resources:
+# VPCの作成
+  RedmineVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags: 
+        - Key: Name
+          Value: RedmineVPC
+# InternetGateWayの作成
+  RedmineIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: RedmineIGW
+# IGWをVPCにアタッチ
+  AttachIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref RedmineIGW
+      VpcId: !Ref RedmineVPC
+# RouteTableの作成
+  RedminePublicRoute:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref RedmineVPC
+      Tags:
+        - Key: Name
+          Value: RedminePublicRoute
+# Routeingの設定
+  Route:
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGW
+    Properties:
+      RouteTableId: !Ref RedminePublicRoute
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref RedmineIGW
+# PublicSubnetの作成
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: 10.0.1.0/24
+      VpcId: !Ref RedmineVPC
+      Tags:
+        - Key: Name
+          Value: RedminePublicSubnet
+# SubnetにRouteテーブルを紐づける
+  PublicSubnetRouteTabelAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RedminePublicRoute
+# セキュリティグループの作成
+# port22と80を解放
+  RedmineSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref RedmineVPC
+      GroupDescription: RedmineSG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: RedmineSG
+# EC2インスタンスの作成
+  RedmineEC2:
+    Type: AWS::EC2::Instance
+    Properties: 
+      AvailabilityZone: ap-northeast-1a
+      InstanceType: t2.micro
+      ImageId: !FindInMap [ StackConfig, EC2, ImageId ]
+      KeyName: !Ref KeyPair
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !GetAtt RedmineSG.GroupId
+      Tags:
+        - Key: Name
+          Value: RedmineEnv
+# ElasticIPの作成
+  RedmineIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref RedmineEC2

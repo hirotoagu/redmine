@@ -1,0 +1,24 @@
+- name: yum update
+  become: yes
+  shell:
+   yum update -y
+
+- name: install docker
+  become: yes
+  yum:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items:
+    - docker
+
+- name: servce start docker
+  become: yes
+  service:
+    state: started
+    name: docker
+
+- name: Add to docker group
+  become: yes
+  shell:
+    usermod -a -G docker ec2-user

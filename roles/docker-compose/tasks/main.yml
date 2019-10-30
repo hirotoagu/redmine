@@ -1,0 +1,14 @@
+- name: install docker-compose
+  become: yes
+  shell:
+    curl -L "https://github.com/docker/compose/releases/download/1.11.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+- name: grant execution permission to docker-compose
+  become: yes
+  shell:
+    chmod +x /usr/local/bin/docker-compose
+
+- name: create sycbolic link
+  become: yes
+  shell:
+    ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
